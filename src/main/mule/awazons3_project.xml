@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:s3="http://www.mulesoft.org/schema/mule/s3"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/s3 http://www.mulesoft.org/schema/mule/s3/current/mule-s3.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="42361b0d-e7dc-4784-a8f8-0552f436c010" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="e2e4d98a-fe4c-4e65-bba5-f2da29bfaeac" file="key.properties" />
+	<s3:config name="Amazon_S3_Configuration" doc:name="Amazon S3 Configuration" doc:id="edfe64ed-0d4a-456f-95cc-eece89c20012" >
+		<s3:basic-connection accessKey="${s3.AccessKey}" secretKey="${s3.SecretKey}" />
+	</s3:config>
+	<flow name="awazons3_projectFlow" doc:id="adc74baf-910a-490f-8b6d-c625737d70e0" >
+		<http:listener doc:name="Listener" doc:id="eafa6fcb-92bc-4397-b0e5-5ff319be881b" config-ref="HTTP_Listener_config" path="/aws"/>
+		<s3:create-bucket doc:name="Create Certification bucket" doc:id="70d9f6d0-b85f-47e6-8b7f-3366271aaeb0" config-ref="Amazon_S3_Configuration" bucketName="${s3.BucketName}"/>
+		<file:read doc:name="Fetch Certification File" doc:id="c4179828-d6e0-443d-ab55-585fb9958bae" path="C:\Users\Admin\Desktop\MCD-Level1.pdf"/>
+		<s3:create-object doc:name="Store PDF in Certification Bucket" doc:id="43561ea9-1a64-4f50-a442-8562d5479ee3" config-ref="Amazon_S3_Configuration" key="#[p('s3.ObjectName')]" bucketName="${s3.BucketName}" contentLength="#[attributes.size]"/>
+		<s3:get-object doc:name="Fetch PDF from Certification Bucket" doc:id="2b718032-701f-485c-9350-919f9a8a34e0" config-ref="Amazon_S3_Configuration" bucketName="${s3.BucketName}" key="${s3.ObjectName}"/>
+		<ee:transform doc:name="Transform Message" doc:id="b296211d-3c84-4025-af62-4931c70e2af9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+import dw::Crypto
+import toBase64 from dw::core::Binaries
+---
+{
+	content : toBase64(payload)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="awazons3_projectFlow1" doc:id="43794b08-64b4-4c51-8fc9-e64570d155a7" >
+		<http:listener doc:name="Listener" doc:id="4e517069-1bfd-4272-b5f1-fdee7a7fbebf" config-ref="HTTP_Listener_config" path="/awsdelete"/>
+		<s3:delete-object doc:name="Delete object" doc:id="15010bd0-4de9-4f06-95b3-0b6bde0e0341" config-ref="Amazon_S3_Configuration" bucketName="${s3.BucketName}" key="#[p('s3.ObjectName')]"/>
+	</flow>
+</mule>
